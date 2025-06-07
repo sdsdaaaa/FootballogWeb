@@ -235,7 +235,7 @@ const snapshot = await getDocs(q);
   };
 
   window.sendMessageTo = function (nickname) {
-    window.location.href = "pages/send-message.html?to=" + encodeURIComponent(nickname);
+    window.location.href = "send-message.html?to=" + encodeURIComponent(nickname);
   };
 
   window.goBack = function () {
@@ -243,7 +243,7 @@ const snapshot = await getDocs(q);
   };
 
   window.goToAddFriend = function () {
-    window.location.href = "pages/add-friends.html";
+    window.location.href = "add-friends.html";
   };
 </script>
 
