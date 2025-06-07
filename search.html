@@ -144,7 +144,7 @@ window.addEventListener("DOMContentLoaded", () => {
                 await Promise.all(updatePromises);
 
                 const winName = `chat_with_${msg.from}`;
-                const url = `/pages/send-message.html?to=${encodeURIComponent(msg.from)}`;
+                const url = `pages/send-message.html?to=${encodeURIComponent(msg.from)}`;
                 const features = "width=500,height=600,resizable=yes,scrollbars=yes";
                 window.open(url, winName, features);
 
