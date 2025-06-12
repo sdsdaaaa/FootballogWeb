@@ -206,8 +206,56 @@ const videoChunk = 4;
 
 
 window.addEventListener("DOMContentLoaded", () => {
+  
   const queryParam = new URLSearchParams(window.location.search).get("query");
 
+  const aiBox = document.getElementById("ai-response");
+const aiContent = document.getElementById("ai-response-content");
+
+if (queryParam && aiBox && aiContent) {
+  aiBox.style.display = "block";
+  aiContent.textContent = "AI 응답을 불러오는 중입니다...";
+
+  const data = JSON.stringify({
+    model: 'gpt-4.1-mini',
+    messages: [
+      {
+        role: 'user',
+        content: `${queryParam}에 대해 자세히 설명해줘`
+      }
+    ],
+    stream: false
+  });
+
+  const xhr = new XMLHttpRequest();
+  xhr.withCredentials = true;
+
+  xhr.onreadystatechange = function () {
+    if (this.readyState === this.DONE) {
+      try {
+        const result = JSON.parse(this.responseText);
+        const output = result?.choices?.[0]?.message?.content?.trim();
+        if (output) {
+          aiContent.innerHTML = `<p style="white-space:pre-line;">${output}</p>`;
+        } else {
+          aiContent.textContent = "AI 응답이 없습니다.";
+        }
+      } catch (e) {
+        console.error("응답 파싱 오류:", e);
+        aiContent.textContent = "AI 응답을 처리하는 데 실패했습니다.";
+      }
+    }
+  };
+
+  xhr.open("POST", "https://gpt-4-1-mini1.p.rapidapi.com/v1/chat/completions");
+  xhr.setRequestHeader("x-rapidapi-key", "16bcdec18emsh8432e33e909b725p159395jsned7a8c858898");
+  xhr.setRequestHeader("x-rapidapi-host", "gpt-4-1-mini1.p.rapidapi.com");
+  xhr.setRequestHeader("Content-Type", "application/json");
+
+  xhr.send(data);
+}
+
+  
   // 제목 텍스트 설정
   const searchTitle = document.getElementById("search-title");
   if (queryParam && searchTitle) {
@@ -215,35 +263,34 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
 
-//  Google 뉴스 검색
- const searchNews = document.getElementById("search-news");
+const searchNews = document.getElementById("search-news");
 if (queryParam && searchNews) {
   const xhr = new XMLHttpRequest();
   xhr.onreadystatechange = function () {
     if (this.readyState === this.DONE) {
       try {
-        const data = JSON.parse(this.responseText);
-        const results = data?.results;
+        const res = JSON.parse(this.responseText);
+        const results = res.items;
 
         if (!results || results.length === 0) {
           searchNews.innerHTML = "<p>검색 결과가 없습니다.</p>";
           return;
         }
 
-        newsResults = results;       // ✅ 저장
-        searchNews.innerHTML = "";   // ✅ 초기화
-        renderNewsChunk();           // ✅ 첫 페이지 렌더링
+        newsResults = results;
+        searchNews.innerHTML = "";
+        renderNewsChunk();
 
       } catch (e) {
-        console.error("Google 뉴스 파싱 오류:", e);
+        console.error("Google72 뉴스 파싱 오류:", e);
         searchNews.innerHTML = "<p>뉴스를 불러오는 데 문제가 발생했습니다.</p>";
       }
     }
   };
 
-  xhr.open("GET", `https://google-search74.p.rapidapi.com/?query=${encodeURIComponent(queryParam)}&limit=100&related_keywords=true`);
+  xhr.open("GET", `https://google-search72.p.rapidapi.com/search?q=${encodeURIComponent(queryParam)}&lr=lang_ko&num=10`);
   xhr.setRequestHeader("x-rapidapi-key", "16bcdec18emsh8432e33e909b725p159395jsned7a8c858898");
-  xhr.setRequestHeader("x-rapidapi-host", "google-search74.p.rapidapi.com");
+  xhr.setRequestHeader("x-rapidapi-host", "google-search72.p.rapidapi.com");
   xhr.send();
 }
 
@@ -301,99 +348,37 @@ if (queryParam && playerBox) {
     });
 }
 
-  // ✅ 유튜브 영상 검색
+  // ✅ YouTube V2 API - 검색 기반
 const videoBox = document.getElementById("search-videos");
 if (queryParam && videoBox) {
-  const xhrVideo = new XMLHttpRequest();
-  xhrVideo.onreadystatechange = function () {
+  const xhr = new XMLHttpRequest();
+  xhr.onreadystatechange = function () {
     if (this.readyState === this.DONE) {
       try {
         const data = JSON.parse(this.responseText);
-        const videos = data.contents?.filter(item => item.video);
+        const videos = data.videos;
 
         if (!videos || videos.length === 0) {
           videoBox.innerHTML = "<p>관련 영상이 없습니다.</p>";
           return;
         }
 
-        videoResults = videos;       // ✅ 전체 영상 저장
-        videoBox.innerHTML = "";     // ✅ 초기화
-        renderVideoChunk();          // ✅ 첫 chunk 렌더링
+        videoResults = videos;
+        videoBox.innerHTML = "";
+        renderVideoChunk();
 
       } catch (e) {
-        console.error("영상 파싱 오류:", e);
+        console.error("유튜브 파싱 오류:", e);
         videoBox.innerHTML = "<p>영상을 불러오는 데 문제가 발생했습니다.</p>";
       }
     }
   };
-  xhrVideo.open("GET", `https://youtube138.p.rapidapi.com/search/?q=${encodeURIComponent(queryParam)}&hl=ko&gl=KR`);
-  xhrVideo.setRequestHeader("x-rapidapi-key", "16bcdec18emsh8432e33e909b725p159395jsned7a8c858898");
-  xhrVideo.setRequestHeader("x-rapidapi-host", "youtube138.p.rapidapi.com");
-  xhrVideo.send();
-}
 
-
-
-
-  // ✅ AI 응답 (이 자리에 넣으세요)
-const aiBox = document.getElementById("ai-response");
-const aiContent = document.getElementById("ai-response-content");
-
-if (queryParam && aiBox && aiContent) {
-  aiBox.style.display = "block";
-
-  const data = JSON.stringify({
-    message: `${queryParam}에 대해 알려줘`,
-    conversation_id: null,
-    mode: "CHAT",
-    markdown: false
-  });
-
-  const xhr = new XMLHttpRequest();
-
-  xhr.onreadystatechange = function () {
-    if (this.readyState === XMLHttpRequest.DONE) {
-      try {
-        const res = JSON.parse(this.responseText);
-
-        if (res?.data?.message) {
-          let html = `<p style="white-space:pre-line;">${res.data.message}</p>`;
-
-          // citations 렌더링
-          if (res.data.citations && res.data.citations.length > 0) {
-            html += `<div style="margin-top: 15px;"><strong>📎 참고 링크:</strong><ul style="padding-left: 18px;">`;
-            res.data.citations.forEach(cite => {
-              html += `
-                <li style="margin-bottom:6px;">
-                  <a href="${cite.url}" target="_blank" style="text-decoration:none; color:#1a73e8;">
-                    ${cite.icon_url ? `<img src="${cite.icon_url}" style="width:14px;height:14px;margin-right:4px;vertical-align:middle;">` : ''}
-                    ${cite.title}
-                  </a>
-                </li>
-              `;
-            });
-            html += `</ul></div>`;
-          }
-
-          aiContent.innerHTML = html;
-        } else {
-          aiContent.textContent = "AI 응답을 불러오지 못했습니다.";
-        }
-      } catch (e) {
-        aiContent.textContent = "AI 응답 파싱 중 오류가 발생했습니다.";
-      }
-    }
-  };
-
-  xhr.open("POST", "https://copilot5.p.rapidapi.com/copilot");
+  xhr.open("GET", `https://youtube-v2.p.rapidapi.com/search/?query=${encodeURIComponent(queryParam)}`);
   xhr.setRequestHeader("x-rapidapi-key", "16bcdec18emsh8432e33e909b725p159395jsned7a8c858898");
-  xhr.setRequestHeader("x-rapidapi-host", "copilot5.p.rapidapi.com");
-  xhr.setRequestHeader("Content-Type", "application/json");
-  xhr.send(data);
+  xhr.setRequestHeader("x-rapidapi-host", "youtube-v2.p.rapidapi.com");
+  xhr.send();
 }
-
-
-
 });
 
 
@@ -405,36 +390,42 @@ function renderNewsChunk() {
   const chunk = newsResults.slice(newsIndex, newsIndex + newsChunk);
   if (chunk.length === 0) return;
 
-  const html = chunk.map(item => `
-    <div class="news-card">
-      <a href="${item.url}" target="_blank" class="news-title">${item.title}</a>
-      <div class="news-meta">${new URL(item.url).hostname}</div>
-      <div class="news-desc">${item.description}</div>
-    </div>
-  `).join('');
+  const html = chunk.map(item => {
+    const title = item.title || "제목 없음";
+    const url = item.link || "#";
+    const snippet = item.snippet || "내용 없음";
+    const source = item.source || "출처 없음";
+
+    return `
+      <div class="news-card">
+        <a href="${url}" target="_blank" class="news-title">${title}</a>
+        <div class="news-meta">${source}</div>
+        <div class="news-desc">${snippet}</div>
+      </div>
+    `;
+  }).join('');
+
   document.getElementById("search-news").insertAdjacentHTML("beforeend", html);
   newsIndex += newsChunk;
 }
 
-// 영상 렌더링 함수
+
 function renderVideoChunk() {
   const chunk = videoResults.slice(videoIndex, videoIndex + videoChunk);
   if (chunk.length === 0) return;
 
   const html = chunk.map(v => {
-    const vid = v.video;
     return `
       <div class="video-card">
-        <iframe src="https://www.youtube.com/embed/${vid.videoId}" allowfullscreen></iframe>
-        <p>${vid.title}</p>
+        <iframe src="https://www.youtube.com/embed/${v.video_id}" allowfullscreen></iframe>
+        <p>${v.title}</p>
       </div>
     `;
   }).join('');
+
   document.getElementById("search-videos").insertAdjacentHTML("beforeend", html);
   videoIndex += videoChunk;
 }
-
-
 
 </script>
 

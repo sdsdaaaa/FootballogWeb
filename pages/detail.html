@@ -2,94 +2,164 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>경기 상세 정보</title>
+  <title>경기 상세 정보 - FOOTBALLOG</title>
   <style>
-    body { font-family: 'Segoe UI', sans-serif; padding: 20px; background: #f9f9f9; }
-    h1, h2 { text-align: center; }
-    table { width: 100%; border-collapse: collapse; margin: 20px 0; background: #fff; }
-    th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
-    th { background-color: #dce6f7; }
-    .team-section { margin-bottom: 40px; }
-
-    table tr:nth-child(even) { background: #f2f2f2; }
-    table th { background: #1565c0; color: white; }
-
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #121212;
+      color: #eee;
+      padding: 20px;
+    }
+    h1, h2 {
+      text-align: center;
+      color: #00bcd4;
+    }
+    .team-logos {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+      margin: 20px 0;
+    }
+    .team-logos img {
+      width: 60px;
+      height: 60px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 30px;
+      background: #1e1e1e;
+      color: #ddd;
+    }
+    th, td {
+      border: 1px solid #333;
+      padding: 10px;
+      text-align: center;
+    }
+    th {
+      background-color: #263238;
+      color: #00e5ff;
+    }
+    .team-section {
+      margin-bottom: 40px;
+    }
+    .team-title {
+      font-size: 20px;
+      color: #4dd0e1;
+      margin: 20px 0 10px;
+      border-bottom: 1px solid #4dd0e1;
+      padding-bottom: 5px;
+    }
   </style>
 </head>
 <body>
-  <h1 id="match-title">경기 상세</h1>
-  <p id="match-info" style="text-align:center;"></p>
-
-  <div class="team-section">
-    <h2>팀 통계</h2>
-    <table id="team-stats"></table>
-  </div>
-
-  <div class="team-section">
-    <h2>선수 통계</h2>
-    <div id="player-stats"></div>
-  </div>
+  <h1>📊 경기 상세 통계</h1>
+  <div id="match-info"></div>
+  <h2>🔢 팀 통계</h2>
+  <table id="team-stats"></table>
+  <h2>👟 선수 주요 기록</h2>
+  <div id="player-sections"></div>
 
   <script>
-    const apiKey = "dba62925619cc528de8b6acc72548d85";
-    const fixtureId = new URLSearchParams(location.search).get("fixtureId");
-
+    const fixtureId = new URLSearchParams(window.location.search).get("fixtureId");
     if (!fixtureId) {
-      document.body.innerHTML = "<p>fixtureId가 없습니다.</p>";
-      throw new Error("Missing fixtureId");
+      document.body.innerHTML = "<p style='text-align:center;'>❌ fixtureId가 URL에 없습니다.</p>";
+      throw new Error("No fixtureId in URL");
     }
 
-    fetch(`https://v3.football.api-sports.io/fixtures?id=${fixtureId}`, {
-      headers: { "x-apisports-key": apiKey }
-    })
-    .then(res => res.json())
-    .then(data => {
-      const f = data.response[0];
-      document.getElementById("match-title").textContent = `${f.teams.home.name} ${f.goals.home} : ${f.goals.away} ${f.teams.away.name}`;
-      document.getElementById("match-info").textContent = `${f.league.name} | ${new Date(f.fixture.date).toLocaleDateString("ko-KR", { year: 'numeric', month: '2-digit', day: '2-digit' })
-}`;
-    });
+    const headers = {
+      "x-rapidapi-key": "16bcdec18emsh8432e33e909b725p159395jsned7a8c858898",
+      "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+    };
 
-    fetch(`https://v3.football.api-sports.io/fixtures/statistics?fixture=${fixtureId}`, {
-      headers: { "x-apisports-key": apiKey }
-    })
-    .then(res => res.json())
-    .then(data => {
-      const home = data.response[0];
-      const away = data.response[1];
-      const table = document.getElementById("team-stats");
-      table.innerHTML = `<tr><th>항목</th><th>${home.team.name}</th><th>${away.team.name}</th></tr>`;
-      home.statistics.forEach((s, i) => {
-        const row = document.createElement("tr");
-        row.innerHTML = `<td>${s.type}</td><td>${s.value ?? "-"}</td><td>${away.statistics[i]?.value ?? "-"}</td>`;
-        table.appendChild(row);
+    async function fetchData() {
+      const [fixtureRes, statRes, playerRes] = await Promise.all([
+        fetch(`https://api-football-v1.p.rapidapi.com/v3/fixtures?id=${fixtureId}`, { headers }),
+        fetch(`https://api-football-v1.p.rapidapi.com/v3/fixtures/statistics?fixture=${fixtureId}`, { headers }),
+        fetch(`https://api-football-v1.p.rapidapi.com/v3/fixtures/players?fixture=${fixtureId}`, { headers })
+      ]);
+
+      const fixtureData = await fixtureRes.json();
+      const statsData = await statRes.json();
+      const playersData = await playerRes.json();
+
+      renderFixtureInfo(fixtureData.response[0]);
+      renderTeamStats(statsData.response);
+      renderPlayerStats(playersData.response);
+    }
+
+    function renderFixtureInfo(data) {
+      const home = data.teams.home;
+      const away = data.teams.away;
+      const score = `${data.goals.home} : ${data.goals.away}`;
+      document.getElementById("match-info").innerHTML = `
+        <div class="team-logos">
+          <div><img src="${home.logo}"><div>${home.name}</div></div>
+          <div style="font-size: 22px; font-weight: bold; color: #fff;">${score}</div>
+          <div><img src="${away.logo}"><div>${away.name}</div></div>
+        </div>
+        <div style="text-align:center; color:#bbb;">
+          📍 ${data.fixture.venue.name} (${data.fixture.venue.city})<br>
+          🕒 ${new Date(data.fixture.date).toLocaleString("ko-KR")}
+        </div>
+      `;
+    }
+
+    function renderTeamStats(statsArray) {
+      const statTable = document.getElementById("team-stats");
+      if (!statsArray || !statsArray.length) {
+        statTable.innerHTML = "<tr><td colspan='3'>팀 통계 정보가 없습니다.</td></tr>";
+        return;
+      }
+
+      const types = statsArray[0].statistics.map(s => s.type);
+      const homeStats = statsArray[0].statistics;
+      const awayStats = statsArray[1].statistics;
+
+      let html = `<tr><th>항목</th><th>${statsArray[0].team.name}</th><th>${statsArray[1].team.name}</th></tr>`;
+      types.forEach((type, i) => {
+        html += `
+          <tr>
+            <td>${type}</td>
+            <td>${homeStats[i].value ?? "-"}</td>
+            <td>${awayStats[i].value ?? "-"}</td>
+          </tr>
+        `;
       });
-    });
+      statTable.innerHTML = html;
+    }
 
-    fetch(`https://v3.football.api-sports.io/fixtures/players?fixture=${fixtureId}`, {
-      headers: { "x-apisports-key": apiKey }
-    })
-    .then(res => res.json())
-    .then(data => {
-      const container = document.getElementById("player-stats");
-      data.response.forEach(team => {
-        const table = document.createElement("table");
-        table.innerHTML = `<tr><th colspan=\"7\">${team.team.name}</th></tr><tr><th>선수</th><th>포지션</th><th>시간</th><th>골</th><th>어시</th><th>패스</th><th>평점</th></tr>`;
+    function renderPlayerStats(players) {
+      const container = document.getElementById("player-sections");
+      if (!players || !players.length) {
+        container.innerHTML = "<p style='text-align:center;'>선수 통계 정보가 없습니다.</p>";
+        return;
+      }
+
+      players.forEach(team => {
+        let html = `
+          <div class="team-section">
+            <div class="team-title">${team.team.name}</div>
+            <table>
+              <tr><th>선수</th><th>득점</th><th>어시스트</th></tr>
+        `;
         team.players.forEach(p => {
-          const s = p.statistics?.[0] || {};
-          table.innerHTML += `<tr>
-            <td>${p.player.name}</td>
-            <td>${p.player.position ?? '-'}</td>
-            <td>${s.games.minutes ?? '-'}</td>
-            <td>${s.goals.total ?? 0}</td>
-            <td>${s.goals.assists ?? 0}</td>
-            <td>${s.passes.total ?? 0}</td>
-            <td>${s.rating ?? '-'}</td>
-          </tr>`;
+          const stats = p.statistics[0];
+          html += `
+            <tr>
+              <td>${p.player.name}</td>
+              <td>${stats.goals?.total ?? 0}</td>
+              <td>${stats.goals?.assists ?? 0}</td>
+            </tr>
+          `;
         });
-        container.appendChild(table);
+        html += `</table></div>`;
+        container.innerHTML += html;
       });
-    });
+    }
+
+    fetchData();
   </script>
 </body>
 </html>
