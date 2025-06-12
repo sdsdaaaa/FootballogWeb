@@ -16,9 +16,16 @@
   <button onclick="savePost()">등록</button>
 
 <script type="module">
-  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
   import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js";
+  import {
+    getFirestore,
+    doc,
+    getDoc,
+    collection,
+    addDoc,
+    serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyA02saQDvqMQbDLrD5UMwX848E6eFO-rUU",
@@ -35,64 +42,66 @@
 
   let currentUser;
   let nickname = "";
-
   let nicknameLoaded = false;
 
-onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    alert("로그인 후 이용 가능합니다.");
-    location.href = "login.html";
-    return;
-  }
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      alert("로그인 후 이용 가능합니다.");
+      location.href = "login.html";
+      return;
+    }
 
-  currentUser = user;
-  const userRef = doc(db, "users", currentUser.uid);
-  const userSnap = await getDoc(userRef);
-  nickname = userSnap.exists() ? userSnap.data().nickname : currentUser.email;
-  nicknameLoaded = true; // ✅ 로딩 완료 표시
-});
+    currentUser = user;
+    const userRef = doc(db, "users", currentUser.uid);
+    const userSnap = await getDoc(userRef);
+    nickname = userSnap.exists() ? userSnap.data().nickname : currentUser.email;
+    nicknameLoaded = true;
+  });
 
-window.savePost = function () {
-  if (!nicknameLoaded) {
-    alert("닉네임 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요.");
-    return;
-  }
+  window.savePost = async function () {
+    if (!nicknameLoaded) {
+      alert("닉네임 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요.");
+      return;
+    }
 
-  const title = document.getElementById("title").value.trim();
-  const content = document.getElementById("content").value.trim();
+    const title = document.getElementById("title").value.trim();
+    const content = document.getElementById("content").value.trim();
 
-  // 🔒 유효성 검사: 1글자 이상 입력 여부 확인
-  if (title.length < 1) {
-    alert("제목을 1글자 이상 입력해주세요.");
-    return;
-  }
+    if (title.length < 1) {
+      alert("제목을 1글자 이상 입력해주세요.");
+      return;
+    }
 
-  if (content.length < 1) {
-    alert("내용을 1글자 이상 입력해주세요.");
-    return;
-  }
+    if (content.length < 1) {
+      alert("내용을 1글자 이상 입력해주세요.");
+      return;
+    }
 
-  const type = new URLSearchParams(location.search).get("type") || "free";
-  const posts = JSON.parse(localStorage.getItem("posts") || "[]");
+    const type = new URLSearchParams(location.search).get("type") || "free";
 
-  const newPost = {
-    id: String(Date.now()),
-    type,
-    title,
-    content,
-    date: new Date().toLocaleDateString(),
-    author: nickname,
-    views: 0,
-    comments: []
+    const newPost = {
+      type,
+      title,
+      content,
+      date: serverTimestamp(), // ✅ 실시간 정렬용 Timestamp
+      author: nickname,
+      uid: currentUser.uid,
+      likes: 0,
+      views: 0,
+      comments: []
+    };
+
+    try {
+      await addDoc(collection(db, "posts"), newPost);
+      alert("등록 완료!");
+      location.href = `board.html?type=${type}`;
+    } catch (e) {
+      console.error("게시글 저장 오류:", e);
+      alert("게시글 등록 중 오류가 발생했습니다.");
+    }
   };
-
-  posts.push(newPost);
-  localStorage.setItem("posts", JSON.stringify(posts));
-  alert("등록 완료!");
-  location.href = `board.html?type=${type}`;
-};
-
 </script>
+
 
 </body>
 </html>

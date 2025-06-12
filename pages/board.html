@@ -280,7 +280,7 @@
 
   <script type="module">
 
-    const posts = JSON.parse(localStorage.getItem("posts") || "[]");
+    
     // board.html 내부 <script type="module"> 최상단 또는 onAuthStateChanged 아래 추가
 const boardType = new URLSearchParams(location.search).get("type") || "free";
 
@@ -295,12 +295,12 @@ if (boardTitleElement) {
 }
 
 
-    function renderPosts() {
+    function renderPosts(posts) {
   const list = document.getElementById("post-list");
-  const filteredPosts = posts.filter(p => p.type === boardType);
-  filteredPosts.sort((a, b) => new Date(b.date) - new Date(a.date));
+  const filtered = posts.filter(p => p.type === boardType);
+ filtered.sort((a, b) => b.date?.seconds - a.date?.seconds);
 
-  list.innerHTML = filteredPosts.map((post) => {
+ list.innerHTML = filtered.map((post) => {
     const likedPosts = JSON.parse(localStorage.getItem("likedPosts") || "[]");
     const liked = likedPosts.includes(post.id);
 
@@ -320,35 +320,42 @@ if (boardTitleElement) {
   }).join("");
 }
 
-  window.likePost = function(postId) {
-  const postIndex = posts.findIndex(p => String(p.id) === String(postId));
-  if (postIndex === -1) return;
+  
 
+
+
+
+import { doc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
+
+window.likePost = async function(postId) {
   let likedPosts = JSON.parse(localStorage.getItem("likedPosts") || "[]");
   const alreadyLiked = likedPosts.includes(postId);
 
-  if (alreadyLiked) {
-    // 취소
-    posts[postIndex].likes = Math.max((posts[postIndex].likes || 1) - 1, 0);
-    likedPosts = likedPosts.filter(id => id !== postId);
-  } else {
-    // 좋아요 추가
-    posts[postIndex].likes = (posts[postIndex].likes || 0) + 1;
-    likedPosts.push(postId);
-  }
+  const postRef = doc(db, "posts", postId);
 
-  // 저장
-  localStorage.setItem("posts", JSON.stringify(posts));
-  localStorage.setItem("likedPosts", JSON.stringify(likedPosts));
+  try {
+    if (alreadyLiked) {
+      await updateDoc(postRef, { likes: increment(-1) });
+      likedPosts = likedPosts.filter(id => id !== postId);
+    } else {
+      await updateDoc(postRef, { likes: increment(1) });
+      likedPosts.push(postId);
+    }
 
-  renderPosts();
-  renderPopular();
+    // 업데이트 후 로컬 상태 갱신
+    localStorage.setItem("likedPosts", JSON.stringify(likedPosts));
 
-  // 하트 애니메이션
-  const likeBtn = document.querySelector(`.like-btn[data-id="${postId}"]`);
-  if (likeBtn) {
-    likeBtn.classList.add("animate-like");
-    setTimeout(() => likeBtn.classList.remove("animate-like"), 300);
+    // 버튼 상태만 다시 그리기 (전체 renderPosts 호출 없이도 가능)
+    const likeBtn = document.querySelector(`.like-btn[data-id="${postId}"]`);
+    if (likeBtn) {
+      likeBtn.innerText = alreadyLiked ? "🤍" : "❤️";
+      likeBtn.classList.toggle("liked", !alreadyLiked);
+      likeBtn.classList.add("animate-like");
+      setTimeout(() => likeBtn.classList.remove("animate-like"), 300);
+    }
+
+  } catch (e) {
+    console.error("좋아요 업데이트 실패:", e);
   }
 };
 
@@ -374,22 +381,37 @@ if (boardTitleElement) {
       location.href = `write.html?type=${boardType}`;
     });
 
-    onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        alert("로그인 후 이용 가능합니다.");
-        location.href = "login.html";
-        return;
-      }
-      renderPosts();
-      renderPopular();
-    });
+  onAuthStateChanged(auth, (user) => {
+  if (!user) {
+    alert("로그인 후 이용 가능합니다.");
+    location.href = "login.html";
+    return;
+  }
+  loadPostsAndRender(); // 이것만 있으면 됨!
+});
 
-    function renderPopular() {
-      const popularList = document.getElementById("popular-list");
-      const sorted = [...posts]
-        .filter(p => p.type === boardType)
-        .sort((a, b) => ((b.comments?.length || 0) + (b.views || 0)) - ((a.comments?.length || 0) + (a.views || 0)))
-        .slice(0, 5);
+
+import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
+
+const db = getFirestore(app); // 이미 선언되어 있을 수도 있음
+
+async function loadPostsAndRender() {
+  try {
+    const snapshot = await getDocs(collection(db, "posts"));
+    const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    renderPosts(posts);
+    renderPopular(posts);
+  } catch (e) {
+    console.error("게시글 불러오기 실패:", e);
+  }
+}
+
+    function renderPopular(posts) {
+  const popularList = document.getElementById("popular-list");
+  const sorted = posts
+    .filter(p => p.type === boardType)
+    .sort((a, b) => ((b.comments?.length || 0) + (b.views || 0)) - ((a.comments?.length || 0) + (a.views || 0)))
+    .slice(0, 5);
 
       popularList.innerHTML = sorted.map(p => `<li><a href="post.html?id=${p.id}">${p.title}</a></li>`).join("");
     }
