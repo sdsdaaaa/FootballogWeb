@@ -312,7 +312,7 @@ if (boardTitleElement) {
         <a class="post-title" href="post.html?id=${post.id}&type=${boardType}">${post.title}</a>
         <div class="post-meta">
           ${post.author || "익명"} · ${post.date}<br>
-          👁 ${post.views || 0} · 💬 ${post.comments?.length || 0} · 
+          👁 ${post.views || 0} · 💬 ${post.commentCount ?? 0} · 
           <span class="likes">❤️ ${post.likes || 0}</span>
         </div>
       </li>
@@ -398,13 +398,31 @@ const db = getFirestore(app); // 이미 선언되어 있을 수도 있음
 async function loadPostsAndRender() {
   try {
     const snapshot = await getDocs(collection(db, "posts"));
-    const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    renderPosts(posts);
-    renderPopular(posts);
+    const rawPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    // 🔁 각 게시글에 댓글 수 추가
+    const postsWithComments = await Promise.all(
+      rawPosts.map(async (post) => {
+        const commentCount = await fetchCommentCount(post.id);
+        return { ...post, commentCount };
+      })
+    );
+
+    renderPosts(postsWithComments);
+    renderPopular(postsWithComments);
   } catch (e) {
     console.error("게시글 불러오기 실패:", e);
   }
 }
+
+
+async function fetchCommentCount(postId) {
+  const snapshot = await getDocs(collection(db, "posts", postId, "comments"));
+  return snapshot.size;
+}
+
+
+
 
     function renderPopular(posts) {
   const popularList = document.getElementById("popular-list");
